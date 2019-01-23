@@ -139,7 +139,18 @@ prism' bs sma = prism bs (\s -> maybe (Left s) Right (sma s))
 -- | Use a 'Prism' as a kind of first-class pattern.
 --
 -- @'outside' :: 'Prism' s t a b -> 'Lens' (t -> r) (s -> r) (b -> r) (a -> r)@
-
+-- 
+-- A completed example may better help understanding:
+--
+-- >>>  (isRight ^. outside _Right) 10
+-- True
+--
+-- If we can use a prism to turn values of type @ a @ into type @ b @,
+-- then we can create a lens that lets us turns functions of type 
+-- @ b -> r @ into functions of type @ a -> r @.
+-- This is most useful when we have some complicated prism that is a composition
+-- of many other prisms.
+-- 
 -- TODO: can we make this work with merely Strong?
 outside :: Representable p => APrism s t a b -> Lens (p t r) (p s r) (p b r) (p a r)
 outside k = withPrism k $ \bt seta f ft ->
@@ -198,6 +209,8 @@ below k =
 --
 -- >>> isn't _Empty []
 -- False
+--
+-- For the opposite function to this, use either 'Control.Lens.Extras.is', or 'Control.Lens.Fold.has'.
 isn't :: APrism s t a b -> s -> Bool
 isn't k s =
   case matching k s of
