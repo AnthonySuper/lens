@@ -38,6 +38,10 @@
 --
 -- The 'Wrapped' class provides similar functionality as @Control.Newtype@,
 -- from the @newtype@ package, but in a more convenient and efficient form.
+-- That is, it provides functionality to wrap up values in newtypes or types with
+-- one constructor, and unwrap values that are wrapped in a newtype or a type with
+-- one constructor. It also contains functionality for working with the concept
+-- of wrapping and unwrapping in general.
 --
 -- There are a few functions from @newtype@ that are not provided here, because
 -- they can be done with the 'Iso' directly:
@@ -1351,6 +1355,17 @@ _Unwrapping _ = from _Wrapped
 -- >>> ala Product foldMap [1,2,3,4]
 -- 24
 --
+-- This function is most often used in conjunction with 'foldMap'.
+-- It is a very common operation to use 'foldMap' to wrap up the values of some
+-- foldable in a 'newtype' wrapper with a different implementation of '<>', fold them
+-- together, and then unwrap them afterwards. This function simplifies the process by
+-- doing all the wrapping and unwrapping automatically.
+--
+-- @
+-- ala w foldMap = view (_Wrapping w) . foldMap (view (_Unwrapping w))
+-- ala Sum foldMap = getSum . foldMap Sum
+-- ala Product foldMap = getProduct . foldMap Sum
+-- @
 --
 -- You may want to think of this combinator as having the following, simpler, type.
 --

@@ -292,6 +292,12 @@ repeated f a = as where as = f a .> as
 --
 -- >>> 5^..replicated 20
 -- [5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5]
+--
+-- >>> [1, 2, 3]^..traversed.replicated 2
+-- [1, 1, 2, 2, 3, 3]
+--
+-- >>> [1, 2, 3]^..replicated 2.traversed
+-- [1, 2, 3, 1, 2, 3]
 replicated :: Int -> Fold a a
 replicated n0 f a = go n0 where
   m = f a
@@ -1906,6 +1912,9 @@ foldlMOf l f z0 xs = foldrOf l f' return xs z0
 -- >>> has (element 0) []
 -- False
 --
+-- Since all 'Prism's are also 'Traversal's, this function can also check if a
+-- given "branch" of a prism matches.
+--
 -- >>> has _Left (Left 12)
 -- True
 --
@@ -1931,6 +1940,7 @@ has l = getAny #. foldMapOf l (\_ -> Any True)
 
 
 -- | Check to see if this 'Fold' or 'Traversal' has no matches.
+-- This is the reverse of 'has'.
 --
 -- >>> hasn't _Left (Right 12)
 -- True
@@ -2124,7 +2134,9 @@ ipreviews l f = asks (getFirst . ifoldMapOf l (\i -> First #. Just . f i))
 ------------------------------------------------------------------------------
 
 -- | Retrieve the first value targeted by a 'Fold' or 'Traversal' (or 'Just' the result
--- from a 'Getter' or 'Lens') into the current state.
+-- from a 'Getter' or 'Lens') into the current state. Essentially
+-- 'preview' but working in 'Control.Monad.State.MonadState' instead of 
+-- 'Control.Monad.Reader.MonadReader'. 
 --
 -- @
 -- 'preuse' = 'use' '.' 'pre'
@@ -2143,6 +2155,8 @@ preuse l = gets (preview l)
 
 -- | Retrieve the first index and value targeted by an 'IndexedFold' or 'IndexedTraversal' (or 'Just' the index
 -- and result from an 'IndexedGetter' or 'IndexedLens') into the current state.
+-- Essentially 'ipreview' but working in 'Control.Monad.State.MonadState' instead of
+-- 'Control.Monad.Reader.MonadReader'.
 --
 -- @
 -- 'ipreuse' = 'use' '.' 'ipre'
@@ -2202,6 +2216,9 @@ ipreuses l f = gets (ipreviews l f)
 -- | This allows you to 'Control.Traversable.traverse' the elements of a pretty much any 'LensLike' construction in the opposite order.
 --
 -- This will preserve indexes on 'Indexed' types and will give you the elements of a (finite) 'Fold' or 'Traversal' in the opposite order.
+--
+-- >>> [1, 2, 3] ^.. backwards traversed
+-- [3, 2, 1]
 --
 -- This has no practical impact on a 'Getter', 'Setter', 'Lens' or 'Iso'.
 --

@@ -28,7 +28,12 @@
 -- Stability   :  provisional
 -- Portability :  Rank2Types
 --
+-- On its most basic level, a 'Getter' is a composable way to "get" some substructure
+-- out of a structure. Unlike a 'Lens', which also allows you to set the values,
+-- 'Getter's are focused purely on viewing. You can compose 'Getter's together to
+-- get deeper and deeper into a complicated structure easily.
 --
+-- On a more technical level, 
 -- A @'Getter' s a@ is just any function @(s -> a)@, which we've flipped
 -- into continuation passing style, @(a -> r) -> s -> r@ and decorated
 -- with 'Const' to obtain:
@@ -164,6 +169,12 @@ ito k = dimap k (contramap (snd . k)) . uncurry . indexed
 -- This can be useful as a second case 'failing' a 'Fold'
 -- e.g. @foo `failing` 'like' 0@
 --
+-- >>> view (traversed `failing` like "bar") []
+-- "bar"
+--
+-- >>> view (traversed `failing` like "bar") ["foo", "baz"]
+-- "foobaz"
+--
 -- @
 -- 'like' :: a -> 'IndexPreservingGetter' s a
 -- @
@@ -171,7 +182,8 @@ like :: (Profunctor p, Contravariant f, Functor f) => a -> Optic' p f s a
 like a = to (const a)
 {-# INLINE like #-}
 
--- |
+-- | Similar to 'like', but provides the index to preserve it.
+-- 
 -- @
 -- 'ilike' :: i -> a -> 'IndexedGetter' i s a
 -- @
@@ -209,14 +221,26 @@ type Accessing p m s a = p a (Const m a) -> s -> Const m s
 -- Getting Values
 -------------------------------------------------------------------------------
 
--- | View the value pointed to by a 'Getter', 'Control.Lens.Iso.Iso' or
--- 'Lens' or the result of folding over all the results of a
--- 'Control.Lens.Fold.Fold' or 'Control.Lens.Traversal.Traversal' that points
--- at a monoidal value.
+-- | View the value pointed to by some optic that can "get" values.
+-- 'Getter', 'Control.Lens.Iso.Iso', and 'Lens' all work very simply: they return the value
+-- that they point to. 
+-- If you have a  'Control.Lens.Fold.Fold' or 'Control.Lens.Traversal.Traversal', this 
+-- function will instead return a "monoidal summary" of the values pointed to,
+-- or all the values merged together with '<>'. 
+-- If the Fold or Traversal has no targets, it will instead return 'mempty'.
+-- As such, the target of the 'Control.Lens.Fold.Fold'
+-- or 'Control.Lens.Traversal.Traversal' must be a 'Data.Monoid.Monoid'.
+-- 
 --
 -- @
 -- 'view' '.' 'to' ≡ 'id'
 -- @
+-- 
+-- >>> view _1 $ view _1 ((1, 2), 3)
+-- 1
+--
+-- >>> view (_1 . _1) ((1, 2), 3)
+-- 1 
 --
 -- >>> view (to f) a
 -- f a
@@ -236,13 +260,14 @@ type Accessing p m s a = p a (Const m a) -> s -> Const m s
 --
 -- @
 -- 'view' ::             'Getter' s a     -> s -> a
--- 'view' :: 'Data.Monoid.Monoid' m => 'Control.Lens.Fold.Fold' s m       -> s -> m
+-- 'view' :: 'Data.Monoid.Monoid' a => 'Control.Lens.Fold.Fold' s m       -> s -> a
 -- 'view' ::             'Control.Lens.Iso.Iso'' s a       -> s -> a
 -- 'view' ::             'Lens'' s a      -> s -> a
--- 'view' :: 'Data.Monoid.Monoid' m => 'Control.Lens.Traversal.Traversal'' s m -> s -> m
+-- 'view' :: 'Data.Monoid.Monoid' a => 'Control.Lens.Traversal.Traversal'' s m -> s -> a
 -- @
 --
--- In a more general setting, such as when working with a 'Monad' transformer stack you can use:
+-- However, this is a restriction: 'view' works with any 'MonadReader s'. The above signatures use
+-- the instance for @ (-> s) @, but 'view' can also be used inside a mondad transformer stack, like so:
 --
 -- @
 -- 'view' :: 'MonadReader' s m             => 'Getter' s a     -> m a
@@ -356,7 +381,7 @@ use l = State.gets (view l)
 -- | Use the target of a 'Lens', 'Control.Lens.Iso.Iso' or
 -- 'Getter' in the current state, or use a summary of a
 -- 'Control.Lens.Fold.Fold' or 'Control.Lens.Traversal.Traversal' that
--- points to a monoidal value.
+-- points to a monoidal value in the current state.
 --
 -- >>> evalState (uses _1 length) ("hello","world")
 -- 5
@@ -372,6 +397,8 @@ use l = State.gets (view l)
 -- @
 -- 'uses' :: 'MonadState' s m => 'Getting' r s t a b -> (a -> r) -> m r
 -- @
+--
+-- This function is similar to 'view' but in 'MonadState' instead of 'MonadReader'.
 uses :: MonadState s m => LensLike' (Const r) s a -> (a -> r) -> m r
 uses l f = State.gets (views l f)
 {-# INLINE uses #-}
@@ -498,7 +525,8 @@ iuses l f = gets (getConst #. l (Const #. Indexed f))
 -- ('^@.') :: s -> 'IndexedLens'' i s a  -> (i, a)
 -- @
 --
--- The result probably doesn't have much meaning when applied to an 'IndexedFold'.
+-- While this will typecheck when used with an 'IndexedFold', it won't report any
+-- kind of sensical value.
 (^@.) :: s -> IndexedGetting i (i, a) s a -> (i, a)
 s ^@. l = getConst $ l (Indexed $ \i -> Const #. (,) i) s
 {-# INLINE (^@.) #-}
